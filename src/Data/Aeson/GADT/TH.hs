@@ -45,7 +45,16 @@ import qualified Data.Set as Set
 import Data.Some (Some(..))
 import Language.Haskell.TH hiding (cxt)
 import Language.Haskell.TH.Datatype (ConstructorInfo(..), applySubstitution, datatypeCons, reifyDatatype, unifyTypes)
-import Language.Haskell.TH.Datatype.TyVarBndr (TyVarBndr_, tvName)
+import Language.Haskell.TH.Datatype.TyVarBndr (tvName)
+
+#if !MIN_VERSION_template_haskell(2,21,0)
+#if MIN_VERSION_th_abstraction(0,6,0)
+import Language.Haskell.TH.Datatype.TyVarBndr (TyVarBndrVis)
+#else
+import Language.Haskell.TH.Datatype.TyVarBndr (TyVarBndr_)
+type TyVarBndrVis = TyVarBndr_ ()
+#endif
+#endif
 
 #if MIN_VERSION_dependent_sum(0,5,0)
 #else
@@ -273,7 +282,7 @@ kindArity = \case
 -- its declaration, and the arity of the kind of type being defined (i.e. how many more arguments would
 -- need to be supplied in addition to the bound parameters in order to obtain an ordinary type of kind *).
 -- If the supplied 'Name' is anything other than a data or newtype, produces an error.
-tyConArity' :: Name -> Q ([TyVarBndr_ ()], Int)
+tyConArity' :: Name -> Q ([TyVarBndrVis], Int)
 tyConArity' n = reify n >>= return . \case
   TyConI (DataD _ _ ts mk _ _) -> (ts, maybe 0 kindArity mk)
   TyConI (NewtypeD _ _ ts mk _ _) -> (ts, maybe 0 kindArity mk)
