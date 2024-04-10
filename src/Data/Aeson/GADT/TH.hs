@@ -54,7 +54,7 @@ pattern Some x = This x
 #endif
 
 -- Do not export this type family, it must remain empty. It's used as a way to trick GHC into not unifying certain type variables.
-type family Skolem :: k -> k
+data family Skolem :: k -> k
 
 skolemize :: Set Name -> Type -> Type
 skolemize rigids t = case t of
@@ -143,7 +143,7 @@ deriveFromJSONGADTWithOptions opts n = do
   let constraints = map head . group . sort $ constraints' -- This 'head' is safe because 'group' returns a list of non-empty lists
   v <- newName "v"
   parser <- funD 'parseJSON
-    [ clause [varP v] (normalB [e| 
+    [ clause [varP v] (normalB [e|
         do (tag', _v') <- parseJSON $(varE v)
            $(caseE [|tag' :: String|] $ map pure matches ++ [wild])
       |]) []
@@ -248,7 +248,7 @@ conMatches clsName topVars ixVar c = do
                    )
           _ -> error $ "The following instances of " ++ show clsName ++ " for " ++ show (ppr [AppT (ConT ''Some) tn]) ++ " exist (rigids: " ++ unwords (map show $ Set.toList rigidVars) ++ "), and I don't know which to pick:\n" ++ unlines (map (show . ppr) insts)
       _ -> do
-        demandInstanceIfNecessary  
+        demandInstanceIfNecessary
         return (VarP x, VarE x)
   -- The singleton is special-cased because of
   -- https://downloads.haskell.org/ghc/8.10.1-rc1/docs/html/users_guide/8.10.1-notes.html#template-haskell
