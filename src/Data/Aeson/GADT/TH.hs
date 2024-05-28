@@ -45,7 +45,16 @@ import qualified Data.Set as Set
 import Data.Some (Some(..))
 import Language.Haskell.TH hiding (cxt)
 import Language.Haskell.TH.Datatype (ConstructorInfo(..), applySubstitution, datatypeCons, reifyDatatype, unifyTypes)
-import Language.Haskell.TH.Datatype.TyVarBndr (TyVarBndr_, tvName)
+import Language.Haskell.TH.Datatype.TyVarBndr (tvName)
+
+#if !MIN_VERSION_template_haskell(2,21,0)
+#if MIN_VERSION_th_abstraction(0,6,0)
+import Language.Haskell.TH.Datatype.TyVarBndr (TyVarBndrVis)
+#else
+import Language.Haskell.TH.Datatype.TyVarBndr (TyVarBndr_)
+type TyVarBndrVis = TyVarBndr_ ()
+#endif
+#endif
 
 #if MIN_VERSION_dependent_sum(0,5,0)
 #else
@@ -54,7 +63,7 @@ pattern Some x = This x
 #endif
 
 -- Do not export this type family, it must remain empty. It's used as a way to trick GHC into not unifying certain type variables.
-type family Skolem :: k -> k
+data family Skolem :: k -> k
 
 skolemize :: Set Name -> Type -> Type
 skolemize rigids t = case t of
@@ -143,7 +152,7 @@ deriveFromJSONGADTWithOptions opts n = do
   let constraints = map head . group . sort $ constraints' -- This 'head' is safe because 'group' returns a list of non-empty lists
   v <- newName "v"
   parser <- funD 'parseJSON
-    [ clause [varP v] (normalB [e| 
+    [ clause [varP v] (normalB [e|
         do (tag', _v') <- parseJSON $(varE v)
            $(caseE [|tag' :: String|] $ map pure matches ++ [wild])
       |]) []
@@ -238,10 +247,17 @@ conMatches clsName topVars ixVar c = do
           [InstanceD _ cxt (AppT _className (AppT (ConT _some) ityp)) _] -> do
             sub <- lift $ unifyTypes [ityp, tn]
             tellCxt $ applySubstitution sub cxt
-            return (ConP 'Some [VarP x], VarE x)
+            return ( ConP
+                       'Some
+#if MIN_VERSION_template_haskell(2,18,0)
+                       []
+#endif
+                       [VarP x]
+                   , VarE x
+                   )
           _ -> error $ "The following instances of " ++ show clsName ++ " for " ++ show (ppr [AppT (ConT ''Some) tn]) ++ " exist (rigids: " ++ unwords (map show $ Set.toList rigidVars) ++ "), and I don't know which to pick:\n" ++ unlines (map (show . ppr) insts)
       _ -> do
-        demandInstanceIfNecessary  
+        demandInstanceIfNecessary
         return (VarP x, VarE x)
   -- The singleton is special-cased because of
   -- https://downloads.haskell.org/ghc/8.10.1-rc1/docs/html/users_guide/8.10.1-notes.html#template-haskell
@@ -266,7 +282,7 @@ kindArity = \case
 -- its declaration, and the arity of the kind of type being defined (i.e. how many more arguments would
 -- need to be supplied in addition to the bound parameters in order to obtain an ordinary type of kind *).
 -- If the supplied 'Name' is anything other than a data or newtype, produces an error.
-tyConArity' :: Name -> Q ([TyVarBndr_ ()], Int)
+tyConArity' :: Name -> Q ([TyVarBndrVis], Int)
 tyConArity' n = reify n >>= return . \case
   TyConI (DataD _ _ ts mk _ _) -> (ts, maybe 0 kindArity mk)
   TyConI (NewtypeD _ _ ts mk _ _) -> (ts, maybe 0 kindArity mk)
