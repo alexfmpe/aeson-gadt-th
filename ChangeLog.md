@@ -1,9 +1,9 @@
 # Revision history for aeson-gadt-th
 
-## 0.2.5.2 - 2022-07-03
+## 0.2.5.2 - 2024-05-28
 
 * Loosen version bounds
-* Support GHC 9.2
+* Support GHC 9.8
 
 ## 0.2.5.1 - 2022-01-04
 
