@@ -37,7 +37,8 @@ import Control.Monad (forM, replicateM)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Writer (WriterT, runWriterT, tell)
 import Data.Aeson (FromJSON(..), ToJSON(..))
-import Data.List (group, intercalate, partition, sort)
+import Data.List (intercalate, partition, sort)
+import qualified Data.List.NonEmpty as NonEmpty
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
@@ -117,7 +118,7 @@ deriveToJSONGADTWithOptions opts n = do
   topVars <- makeTopVars n
   let n' = foldl (\c v -> AppT c (VarT v)) (ConT n) topVars
   (matches, constraints') <- runWriterT (mapM (fmap pure . conMatchesToJSON opts topVars) cons)
-  let constraints = map head . group . sort $ constraints' -- This 'head' is safe because 'group' returns a list of non-empty lists
+  let constraints = map NonEmpty.head . NonEmpty.group . sort $ constraints'
   impl <- funD 'toJSON
     [ clause [] (normalB $ lamCaseE matches) []
     ]
@@ -149,7 +150,7 @@ deriveFromJSONGADTWithOptions opts n = do
   topVars <- makeTopVars n
   let n' = foldl (\c v -> AppT c (VarT v)) (ConT n) $ init topVars
   (matches, constraints') <- runWriterT $ mapM (conMatchesParseJSON opts topVars [|_v'|]) cons
-  let constraints = map head . group . sort $ constraints' -- This 'head' is safe because 'group' returns a list of non-empty lists
+  let constraints = map NonEmpty.head . NonEmpty.group . sort $ constraints'
   v <- newName "v"
   parser <- funD 'parseJSON
     [ clause [varP v] (normalB [e|
